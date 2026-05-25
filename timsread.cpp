@@ -7,13 +7,15 @@
  *   ./timsread <file.d>          -- extract MS/MS to .mgf
  *   ./timsread <file.d> -ms1     -- also extract MS1 binary data to _ms1.txt
  *   ./timsread <file.d> -sql     -- fast: dump Frames table from analysis.tdf
- *                                   (no SDK binary read). Gives RT, MsMsType,
+ *                                   (no SDK binary read). RT, MsMsType,
  *                                   MaxIntensity, SummedIntensities per frame.
  *   ./timsread <file.d> -chrom   -- extract all traces from both
  *                                   chromatography-data.sqlite (run) and
- *                                   chromatography-data-pre.sqlite (pre-run):
- *                                   BPC, TIC, nanoElute flow/pressure/gradient/
- *                                   temperature/valves. One TSV per trace.
+ *                                   chromatography-data-pre.sqlite (pre-run).
+ *   ./timsread <file.d> -tdf     -- dump EVERY table in analysis.tdf as TSV
+ *                                   (dynamic: ddaPASEF, diaPASEF, any version)
+ *                                   + SDK-derived mz and 1/K0 calibration tables
+ *                                   from analysis.tdf_bin (one per frame).
  *
  * Build:
  *   g++ -O3 -march=native -std=c++17 \
@@ -382,6 +384,288 @@ static void writeChrom(const std::string& tdfDirectory)
 }
 
 // ---------------------------------------------------------------------------
+// -tdf mode: dump all analysis.tdf tables + SDK calibration from tdf_bin
+//
+// analysis.tdf  : SQLite, schema varies by acquisition mode and TDF version.
+//                 We introspect sqlite_master at runtime so every table is
+//                 written regardless of version (ddaPASEF / diaPASEF / DIA-PASEF).
+//                 Known tables include:
+//                   GlobalMetadata, Frames, Precursors, PasefFrameMsMsInfo,
+//                   MzCalibration, TimsCalibration, PropertyDefinitions,
+//                   Properties, Segments, SampleInfo, DiaFrameMsMsInfo,
+//                   DiaFrameMsMsWindows, DiaPasefFrameMsMsInfo, FrameMsMsInfo
+//                 Blob columns are rendered as "[BLOB N bytes]" (not useful as text).
+//
+// analysis.tdf_bin : pure binary, only accessible via SDK.
+//                 The SDK adds two things not in SQLite:
+//                   1. indexToMz   : raw TOF index -> calibrated m/z (per frame)
+//                   2. scanNumToOneOverK0 : scan number -> 1/K0 (per frame)
+//                 We write one calibration-sample table covering the full
+//                 index/scan range for the first MS1 and first MS2 frame,
+//                 plus a per-frame summary of min/max m/z and 1/K0.
+// ---------------------------------------------------------------------------
+
+// Return a printable string for a SQLite column value.
+// BLOBs are rendered as "[BLOB N bytes]" so the TSV stays valid.
+static std::string colToString(sqlite3_stmt* stmt, int col)
+{
+    int type = sqlite3_column_type(stmt, col);
+    switch (type) {
+        case SQLITE_NULL:    return "";
+        case SQLITE_INTEGER: return std::to_string(sqlite3_column_int64(stmt, col));
+        case SQLITE_FLOAT: {
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "%.10g", sqlite3_column_double(stmt, col));
+            return buf;
+        }
+        case SQLITE_TEXT:
+            return std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, col)));
+        case SQLITE_BLOB: {
+            int n = sqlite3_column_bytes(stmt, col);
+            return "[BLOB " + std::to_string(n) + " bytes]";
+        }
+        default: return "";
+    }
+}
+
+static void dumpOneTable(sqlite3* db, const std::string& tableName,
+                         const std::string& outDir, const std::string& prefix)
+{
+    // Build a SELECT * for this table
+    std::string sql = "SELECT * FROM [" + tableName + "];";
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "  Warning: cannot query table [" << tableName << "]: "
+                  << sqlite3_errmsg(db) << "\n";
+        return;
+    }
+
+    int ncols = sqlite3_column_count(stmt);
+    if (ncols == 0) { sqlite3_finalize(stmt); return; }
+
+    std::string outPath = outDir + "/" + prefix + "_" + tableName + ".txt";
+    std::ofstream out(outPath);
+    if (!out.is_open()) {
+        std::cerr << "  Warning: cannot open " << outPath << "\n";
+        sqlite3_finalize(stmt);
+        return;
+    }
+
+    // Header
+    for (int c = 0; c < ncols; ++c) {
+        out << sqlite3_column_name(stmt, c);
+        if (c < ncols - 1) out << "\t";
+    }
+    out << "\n";
+
+    // Rows
+    long long nrows = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        for (int c = 0; c < ncols; ++c) {
+            out << colToString(stmt, c);
+            if (c < ncols - 1) out << "\t";
+        }
+        out << "\n";
+        ++nrows;
+    }
+    sqlite3_finalize(stmt);
+    out.close();
+
+    std::cout << "  " << std::left << std::setw(34) << tableName
+              << std::right << std::setw(8) << nrows << " rows -> "
+              << outPath << "\n";
+}
+
+static void dumpAllTdfTables(const std::string& tdfFile,
+                             const std::string& outDir,
+                             const std::string& prefix)
+{
+    sqlite3* db = openDb(tdfFile);
+
+    // Enumerate all tables and views from sqlite_master
+    sqlite3_stmt* master = nullptr;
+    sqlite3_prepare_v2(db,
+        "SELECT name, type FROM sqlite_master "
+        "WHERE type IN ('table','view') ORDER BY type DESC, name;",
+        -1, &master, nullptr);
+
+    std::vector<std::string> tables;
+    while (sqlite3_step(master) == SQLITE_ROW) {
+        std::string name  = reinterpret_cast<const char*>(sqlite3_column_text(master, 0));
+        std::string ttype = reinterpret_cast<const char*>(sqlite3_column_text(master, 1));
+        tables.push_back(name);
+        std::cout << "  Found " << ttype << ": " << name << "\n";
+    }
+    sqlite3_finalize(master);
+
+    std::cout << "\nDumping " << tables.size() << " tables/views...\n";
+    for (const auto& t : tables)
+        dumpOneTable(db, t, outDir, prefix);
+
+    sqlite3_close(db);
+}
+
+// Write SDK-derived calibration tables from analysis.tdf_bin.
+// For each of the first N_CALIB_FRAMES MS1 frames and first N_CALIB_FRAMES MS2
+// frames, write:
+//   - mz calibration: TOF index 0..maxIndex step 100 -> m/z
+//   - mobility calibration: scan 0..numScans step 1 -> 1/K0
+// Also writes a per-frame summary (frame_id, rt, min_mz, max_mz, min_k0, max_k0).
+
+static void dumpSdkCalibration(const std::string& tdfDirectory,
+                               const std::string& tdfFile,
+                               const std::string& outDir,
+                               const std::string& prefix)
+{
+    const int N_CALIB_FRAMES = 3;  // first N MS1 and first N MS2 frames
+
+    timsdata::TimsData data(tdfDirectory);
+
+    // Load frame metadata to know numScans and MsMsType
+    sqlite3* db = openDb(tdfFile);
+    sqlite3_stmt* stmt = nullptr;
+    sqlite3_prepare_v2(db,
+        "SELECT Id, Time, NumScans, MsMsType FROM Frames ORDER BY Id;",
+        -1, &stmt, nullptr);
+
+    struct FrInfo { int64_t id; double time; int numScans; int type; };
+    std::vector<FrInfo> ms1frames, ms2frames;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        FrInfo f;
+        f.id       = sqlite3_column_int64(stmt, 0);
+        f.time     = sqlite3_column_double(stmt, 1);
+        f.numScans = sqlite3_column_int(stmt, 2);
+        f.type     = sqlite3_column_int(stmt, 3);
+        if (f.type == 0 && (int)ms1frames.size() < N_CALIB_FRAMES) ms1frames.push_back(f);
+        if (f.type != 0 && (int)ms2frames.size() < N_CALIB_FRAMES) ms2frames.push_back(f);
+        if ((int)ms1frames.size() >= N_CALIB_FRAMES &&
+            (int)ms2frames.size() >= N_CALIB_FRAMES) break;
+    }
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
+    // For each selected frame write mz calibration and mobility calibration
+    for (int pass = 0; pass < 2; ++pass) {
+        auto& frames = (pass == 0) ? ms1frames : ms2frames;
+        std::string msTag = (pass == 0) ? "MS1" : "MS2";
+
+        for (const FrInfo& fr : frames) {
+            // -- m/z calibration: sample 500 evenly-spaced TOF indices --
+            // Typical timsTOF TOF index range: 0 - ~400,000
+            const int N_MZ_STEPS = 500;
+            const double maxIdx  = 400000.0;
+            std::vector<double> idxIn(N_MZ_STEPS), mzOut;
+            for (int k = 0; k < N_MZ_STEPS; ++k)
+                idxIn[k] = (maxIdx / (N_MZ_STEPS - 1)) * k;
+            data.indexToMz(fr.id, idxIn, mzOut);
+
+            std::string mzPath = outDir + "/" + prefix
+                + "_calib_mz_frame" + std::to_string(fr.id)
+                + "_" + msTag + ".txt";
+            std::ofstream mzOut2(mzPath);
+            mzOut2 << "# Frame_ID=" << fr.id
+                   << "  RT_seconds=" << fr.time
+                   << "  MsMsType=" << fr.type << "\n"
+                   << "TOF_index\tmz\n";
+            mzOut2 << std::fixed << std::setprecision(6);
+            for (int k = 0; k < N_MZ_STEPS; ++k)
+                mzOut2 << idxIn[k] << "\t" << mzOut[k] << "\n";
+            mzOut2.close();
+
+            // -- 1/K0 calibration: every scan in the frame --
+            int ns = fr.numScans;
+            std::vector<double> scanIn(ns), k0Out;
+            for (int k = 0; k < ns; ++k) scanIn[k] = static_cast<double>(k);
+            data.scanNumToOneOverK0(fr.id, scanIn, k0Out);
+
+            std::string k0Path = outDir + "/" + prefix
+                + "_calib_1k0_frame" + std::to_string(fr.id)
+                + "_" + msTag + ".txt";
+            std::ofstream k0Out2(k0Path);
+            k0Out2 << "# Frame_ID=" << fr.id
+                   << "  RT_seconds=" << fr.time
+                   << "  MsMsType=" << fr.type << "\n"
+                   << "Scan_number\t1_over_K0\n";
+            k0Out2 << std::fixed << std::setprecision(6);
+            for (int k = 0; k < ns; ++k)
+                k0Out2 << k << "\t" << k0Out[k] << "\n";
+            k0Out2.close();
+
+            std::cout << "  Frame " << fr.id << " (" << msTag << ")"
+                      << "  mz_calib -> " << mzPath << "\n"
+                      << "           "
+                      << "  1k0_calib -> " << k0Path << "\n";
+        }
+    }
+
+    // Per-frame calibration summary: min/max mz and 1/K0 for every frame
+    // Re-open full frame list for summary
+    db = openDb(tdfFile);
+    sqlite3_prepare_v2(db,
+        "SELECT Id, Time, NumScans, MsMsType FROM Frames ORDER BY Id;",
+        -1, &stmt, nullptr);
+
+    std::string sumPath = outDir + "/" + prefix + "_calib_summary.txt";
+    std::ofstream sumOut(sumPath);
+    sumOut << "Frame_ID\tRT_seconds\tMsMsType\tNumScans\t"
+           << "mz_at_idx0\tmz_at_idx400k\t1k0_scan0\t1k0_scanN\n";
+    sumOut << std::fixed << std::setprecision(6);
+
+    std::vector<double> two_idx = {0.0, 400000.0};
+    std::vector<double> two_mz;
+    std::vector<double> two_scan_mz, two_k0;
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        int64_t fid  = sqlite3_column_int64(stmt, 0);
+        double  time = sqlite3_column_double(stmt, 1);
+        int     ns2  = sqlite3_column_int(stmt, 2);
+        int     mstype = sqlite3_column_int(stmt, 3);
+
+        data.indexToMz(fid, two_idx, two_mz);
+
+        std::vector<double> edge_scans = {0.0, static_cast<double>(ns2 - 1)};
+        data.scanNumToOneOverK0(fid, edge_scans, two_k0);
+
+        sumOut << fid     << "\t" << time   << "\t"
+               << mstype  << "\t" << ns2    << "\t"
+               << two_mz[0] << "\t" << two_mz[1] << "\t"
+               << two_k0[0] << "\t" << two_k0[1] << "\n";
+    }
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    sumOut.close();
+    std::cout << "  Calibration summary -> " << sumPath << "\n";
+}
+
+static void writeTdf(const std::string& tdfDirectory)
+{
+    std::string tdfFile = tdfDirectory + "/analysis.tdf";
+    std::string baseName = tdfDirectory.substr(tdfDirectory.find_last_of("/\\") + 1);
+    std::string outDir   = tdfDirectory + "_tdf";
+
+    std::string mkdirCmd = "mkdir -p \"" + outDir + "\"";
+    if (std::system(mkdirCmd.c_str()) != 0) {
+        std::cerr << "Error: cannot create output directory: " << outDir << std::endl;
+        std::exit(1);
+    }
+
+    std::cout << "\n--- analysis.tdf tables (" << tdfFile << ") ---\n";
+    dumpAllTdfTables(tdfFile, outDir, baseName);
+
+    std::cout << "\n--- analysis.tdf_bin SDK calibration ---\n";
+    try {
+        dumpSdkCalibration(tdfDirectory, tdfFile, outDir, baseName);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "  Warning: SDK calibration failed: " << e.what() << "\n";
+        std::cerr << "  (tdf_bin may be unavailable - SQL tables still written)\n";
+    }
+
+    std::cout << "\nOutput directory: " << outDir << "\n";
+}
+
+// ---------------------------------------------------------------------------
 // -sql mode: frame metadata only, no SDK binary read
 // Output: Frame_ID  RT_seconds  MsMsType  MaxIntensity  SummedIntensities
 //         NumScans  NumPeaks
@@ -624,19 +908,22 @@ static void processAllFrames(
 
 int main(int argc, char* argv[])
 {
-    if (argc < 2 || argc > 5) {
-        std::cerr << "Usage: " << argv[0] << " <file.d> [-ms1] [-sql] [-chrom]" << std::endl;
-        std::cerr << "  (no flag)  Extract MS/MS to _msms.mgf"                   << std::endl;
-        std::cerr << "  -ms1       Also extract MS1 binary data to _ms1.txt"     << std::endl;
-        std::cerr << "  -sql       Dump Frames table from analysis.tdf (no SDK)" << std::endl;
-        std::cerr << "  -chrom     Extract all traces from chromatography-data"  << std::endl;
-        std::cerr << "             .sqlite and -pre.sqlite (BPC/TIC/flow/etc)"   << std::endl;
+    if (argc < 2 || argc > 6) {
+        std::cerr << "Usage: " << argv[0] << " <file.d> [-ms1] [-sql] [-chrom] [-tdf]" << std::endl;
+        std::cerr << "  (no flag)  Extract MS/MS to _msms.mgf"                         << std::endl;
+        std::cerr << "  -ms1       Also extract MS1 binary data to _ms1.txt"           << std::endl;
+        std::cerr << "  -sql       Dump Frames table from analysis.tdf (no SDK)"       << std::endl;
+        std::cerr << "  -chrom     Extract all nanoElute + MS traces from"             << std::endl;
+        std::cerr << "             chromatography-data.sqlite and -pre.sqlite"         << std::endl;
+        std::cerr << "  -tdf       Dump ALL analysis.tdf tables as TSV + SDK"         << std::endl;
+        std::cerr << "             calibration tables from analysis.tdf_bin"           << std::endl;
         return -1;
     }
 
     bool extractMS1 = false;
     bool sqlOnly    = false;
     bool chromOnly  = false;
+    bool tdfOnly    = false;
     std::string tdfDirectory;
 
     for (int i = 1; i < argc; ++i) {
@@ -644,6 +931,7 @@ int main(int argc, char* argv[])
         if      (arg == "-ms1")   extractMS1 = true;
         else if (arg == "-sql")   sqlOnly    = true;
         else if (arg == "-chrom") chromOnly  = true;
+        else if (arg == "-tdf")   tdfOnly    = true;
         else if (arg[0] != '-')   tdfDirectory = arg;
         else {
             std::cerr << "Unknown option: " << arg << std::endl;
@@ -674,6 +962,13 @@ int main(int argc, char* argv[])
     if (chromOnly) {
         std::cout << "Extracting chromatography traces from " << tdfDirectory << " ..." << std::endl;
         writeChrom(tdfDirectory);
+        return 0;
+    }
+
+    // -tdf mode: dump all analysis.tdf tables + SDK calibration from tdf_bin
+    if (tdfOnly) {
+        std::cout << "Dumping all TDF tables from " << tdfDirectory << " ..." << std::endl;
+        writeTdf(tdfDirectory);
         return 0;
     }
 

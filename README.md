@@ -80,8 +80,10 @@ LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -chrom 230317_SIGR
 LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -sql 230317_SIGRID_10_Slot1-41_1_4086.d
 # Extract SQL data only (default)
 LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread 230317_SIGRID_10_Slot1-41_1_4086.d
-# Extract both MS/MS and MS1 data
+# Extract both MS/MS and MS1 data sampled at 10th frame (little faster)
 LD_LIBRARY_PATH=/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64 ./timsread "230317_SIGRID_10_Slot1-41_1_4086.d" -ms1
+# Extract ALL of TDF data
+LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -tdf 260506_peptid_p10_Slot2-1_1_13559.d
 ```
 
 **Takes about couple of minutes and expected default output:**
