@@ -4,7 +4,7 @@
 
 ```
 g++ -O3 -march=native -std=c++17 -I../timsdata_5_0_2/timsdata/include/c   -I../timsdata_5_0_2/timsdata/examples/timsdataSampleCpp/timsdataSampleCpp   -o timsread timsread.cpp   -L../timsdata_5_0_2/timsdata/linux64 -ltimsdata -lsqlite3
-LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -sql 230317_SIGRID_10_Slot1-41_1_4086.d
+LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread 230317_SIGRID_10_Slot1-41_1_4086.d
 ```
 
 ## Table of Contents
@@ -79,7 +79,7 @@ LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -chrom 230317_SIGR
 # Extract SQL data only (faster)
 LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -sql 230317_SIGRID_10_Slot1-41_1_4086.d
 # Extract SQL data only (default)
-LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread 230317_SIGRID_10_Slot1-41_1_4086.d
+LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -mgf 230317_SIGRID_10_Slot1-41_1_4086.d
 # Extract both MS/MS and MS1 data sampled at 10th frame (little faster)
 LD_LIBRARY_PATH=/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64 ./timsread "230317_SIGRID_10_Slot1-41_1_4086.d" -ms1
 # Extract ALL of TDF data
@@ -88,24 +88,33 @@ LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -tdf 260506_peptid
 LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -tdfbin 260506_peptid_p10_Slot2-1_1_13559.d
 ```
 
-**Takes about couple of minutes and expected default output:**
+**Takes few minutes and expected default MGF output:**
 ```
+time LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread 230317_SIGRID_10_Slot1-41_1_4086.d
+# Calibration     : instrument default
 Loading metadata...
-# TDF file 230317_SIGRID_10_Slot1-41_1_4086.d contains 66477 frames.
-# Loaded 291844 precursors and 56501 MS/MS frames.
-# MS/MS data written to: 230317_SIGRID_10_Slot1-41_1_4086.d_msms.mgf
-
+# TDF file          : 230317_SIGRID_10_Slot1-41_1_4086.d
+# Total frames      : 66477
+# Precursors loaded : 291844
+# MS/MS frames      : 56501
+# MGF output        : 230317_SIGRID_10_Slot1-41_1_4086.d_msms.mgf
 Processing frames...
-Progress: 100% (66477/66477) MS1:0 MS2:56501     
-Total frames processed: 66477
-MS1 frames: 0
-MS/MS frames: 56501
-Skipped precursors with invalid m/z: 8268
-Processing completed!
+Progress: 100% (66477/66477) MS1:0 MS2:56501 
+Total frames processed : 66477
+MS1 frames             : 0
+MS/MS frames           : 56501
+Skipped (invalid m/z)  : 8268
+MGF extraction completed.
+
+real    6m47.663s
+user    3m54.451s
+sys     0m16.221s
 ```
+
+**`-tdfbin` switch:**
+note that `timsread` warns about the sizes, default is to NOT proceed, press `y` to continue...
 
 **Expected output with `-ms1` switch:**
-
 ```
 LD_LIBRARY_PATH=/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64 ./timsread "230317_SIGRID_10_Slot1-41_1_4086.d" -ms1
 Loading metadata...

@@ -1152,11 +1152,13 @@ static void processAllFrames(
 
 int main(int argc, char* argv[])
 {
-    if (argc < 2 || argc > 7) {
+    if (argc < 2) {
         std::cerr << "Usage: " << argv[0]
-                  << " <file.d> [-ms1] [-sql] [-chrom] [-tdf] [-tdfbin]\n"
-                  << "  (no flag)  Extract MS/MS to _msms.mgf\n"
-                  << "  -ms1       Also extract MS1 (every 10th IMS scan) to _ms1.txt\n"
+                  << " <file.d> [flags...]\n\n"
+                  << "Flags (combinable except where noted):\n"
+                  << "  -mgf       Extract MS/MS to _msms.mgf  [default if no flags given]\n"
+                  << "  -ms1       Extract MS1 (every 10th IMS scan) to _ms1.txt\n"
+                  << "             (implies -mgf)\n"
                   << "  -sql       Dump Frames table from analysis.tdf (no SDK)\n"
                   << "  -chrom     Extract all nanoElute + MS traces from\n"
                   << "             chromatography-data.sqlite and -pre.sqlite\n"
@@ -1164,11 +1166,16 @@ int main(int argc, char* argv[])
                   << "             calibration tables from analysis.tdf_bin\n"
                   << "  -tdfbin    Dump complete binary data: ALL frames, ALL IMS\n"
                   << "             scans, calibrated mz + 1/K0. ~20 GB for 90-min\n"
-                  << "             run. Chunked into ~500 MB files. Requires\n"
-                  << "             interactive confirmation before writing.\n";
+                  << "             run. Chunked ~500 MB files. Interactive confirm.\n"
+                  << "\nExamples:\n"
+                  << "  " << argv[0] << " run.d -mgf          # MGF only\n"
+                  << "  " << argv[0] << " run.d -mgf -ms1     # MGF + MS1\n"
+                  << "  " << argv[0] << " run.d -sql -chrom   # metadata only, no SDK\n"
+                  << "  " << argv[0] << " run.d -tdfbin       # full binary dump\n";
         return -1;
     }
 
+    bool extractMGF = false;
     bool extractMS1 = false;
     bool sqlOnly    = false;
     bool chromOnly  = false;
@@ -1178,20 +1185,21 @@ int main(int argc, char* argv[])
 
     for (int i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
-        if      (arg == "-ms1")    extractMS1 = true;
+        if      (arg == "-mgf")    extractMGF = true;
+        else if (arg == "-ms1")    extractMS1 = true;
         else if (arg == "-sql")    sqlOnly    = true;
         else if (arg == "-chrom")  chromOnly  = true;
         else if (arg == "-tdf")    tdfOnly    = true;
         else if (arg == "-tdfbin") tdfBin     = true;
         else if (arg[0] != '-')    tdfDirectory = arg;
         else {
-            std::cerr << "Unknown option: " << arg << std::endl;
+            std::cerr << "Unknown option: " << arg << "\n";
             return -1;
         }
     }
 
     if (tdfDirectory.empty()) {
-        std::cerr << "Error: TDF directory not specified" << std::endl;
+        std::cerr << "Error: TDF directory not specified\n";
         return -1;
     }
 
@@ -1200,95 +1208,102 @@ int main(int argc, char* argv[])
            (tdfDirectory.back() == '/' || tdfDirectory.back() == '\\'))
         tdfDirectory.pop_back();
 
+    // -ms1 implies -mgf (existing behaviour preserved)
+    if (extractMS1) extractMGF = true;
+
+    // Backward compat: no flags at all -> default to -mgf
+    if (!extractMGF && !extractMS1 && !sqlOnly &&
+        !chromOnly && !tdfOnly && !tdfBin)
+        extractMGF = true;
+
     std::string tdfFile = tdfDirectory + "/analysis.tdf";
 
-    // -sql mode: SQLite only, no SDK required, fast
+    // --- Non-SDK modes (no SDK needed, run first so they work standalone) ---
+
     if (sqlOnly) {
-        std::cout << "Loading frame metadata from " << tdfFile << " ..." << std::endl;
+        std::cout << "Loading frame metadata from " << tdfFile << " ...\n";
         writeSqlFrames(tdfFile, tdfDirectory + "_frames.txt");
-        return 0;
     }
 
-    // -chrom mode: decode chromatography-data.sqlite + pre file
     if (chromOnly) {
-        std::cout << "Extracting chromatography traces from " << tdfDirectory << " ..." << std::endl;
+        std::cout << "Extracting chromatography traces from " << tdfDirectory << " ...\n";
         writeChrom(tdfDirectory);
-        return 0;
     }
 
-    // -tdf mode: dump all analysis.tdf tables + SDK calibration from tdf_bin
     if (tdfOnly) {
-        std::cout << "Dumping all TDF tables from " << tdfDirectory << " ..." << std::endl;
+        std::cout << "Dumping all TDF tables from " << tdfDirectory << " ...\n";
         writeTdf(tdfDirectory);
-        return 0;
     }
 
-    // -tdfbin mode: complete binary dump of all frames and IMS scans
+    // -tdfbin runs standalone (has its own confirmation + SDK init)
     if (tdfBin) {
         writeTdfBin(tdfDirectory);
-        return 0;
     }
 
-    // Full extraction mode
-    try {
-        timsdata::TimsData data(tdfDirectory);
+    // --- SDK modes: MGF and/or MS1 ---
 
-        auto calId = data.getCalibrationId();
-        std::cout << "# Calibration     : "
-                  << (calId.has_value() ? calId.value() : "instrument default") << std::endl;
+    if (extractMGF) {
+        try {
+            timsdata::TimsData data(tdfDirectory);
 
-        sqlite3* db = openDb(tdfFile);
-        std::cout << "Loading metadata..." << std::endl;
+            auto calId = data.getCalibrationId();
+            std::cout << "# Calibration     : "
+                      << (calId.has_value() ? calId.value() : "instrument default") << "\n";
 
-        auto frames     = loadFrames(db);
-        auto precursors = loadPrecursors(db);
-        auto pasefData  = loadPasef(db);
-        sqlite3_close(db);
+            sqlite3* db = openDb(tdfFile);
+            std::cout << "Loading metadata...\n";
 
-        std::string mgfPath = tdfDirectory + "_msms.mgf";
-        std::ofstream mgfOutput(mgfPath);
-        if (!mgfOutput.is_open()) {
-            std::cerr << "Error: cannot open: " << mgfPath << std::endl;
-            return -1;
-        }
+            auto frames     = loadFrames(db);
+            auto precursors = loadPrecursors(db);
+            auto pasefData  = loadPasef(db);
+            sqlite3_close(db);
 
-        std::ofstream ms1Output;
-        std::string ms1Path;
-        if (extractMS1) {
-            ms1Path = tdfDirectory + "_ms1.txt";
-            ms1Output.open(ms1Path);
-            if (!ms1Output.is_open()) {
-                std::cerr << "Error: cannot open: " << ms1Path << std::endl;
+            std::string mgfPath = tdfDirectory + "_msms.mgf";
+            std::ofstream mgfOutput(mgfPath);
+            if (!mgfOutput.is_open()) {
+                std::cerr << "Error: cannot open: " << mgfPath << "\n";
                 return -1;
             }
+
+            std::ofstream ms1Output;
+            std::string ms1Path;
+            if (extractMS1) {
+                ms1Path = tdfDirectory + "_ms1.txt";
+                ms1Output.open(ms1Path);
+                if (!ms1Output.is_open()) {
+                    std::cerr << "Error: cannot open: " << ms1Path << "\n";
+                    return -1;
+                }
+            }
+
+            std::cout << "# TDF file          : " << tdfDirectory << "\n"
+                      << "# Total frames      : " << frames.size()     << "\n"
+                      << "# Precursors loaded : " << precursors.size() << "\n"
+                      << "# MS/MS frames      : " << pasefData.size()  << "\n"
+                      << "# MGF output        : " << mgfPath           << "\n";
+            if (extractMS1)
+                std::cout << "# MS1 output        : " << ms1Path        << "\n";
+
+            mgfOutput << "# MS/MS spectra from TDF file: " << tdfDirectory  << "\n"
+                      << "# ZERO-FILTER ONLY - Remove only zero intensity peaks\n"
+                      << "# MGF format for protein identification\n\n";
+
+            if (extractMS1)
+                ms1Output << "# MS1 spectra from TDF file: " << tdfDirectory << "\n"
+                          << "# Format: Frame_ID RT_seconds Scan_Number"
+                             " m/z Intensity Mobility\n\n";
+
+            processAllFrames(data, frames, precursors, pasefData,
+                             mgfOutput, extractMS1 ? &ms1Output : nullptr);
+
+            mgfOutput.close();
+            if (extractMS1) ms1Output.close();
+            std::cout << "MGF extraction completed.\n";
         }
-
-        std::cout << "# TDF file " << tdfDirectory
-                  << " contains " << frames.size() << " frames." << std::endl;
-        std::cout << "# Precursors loaded : " << precursors.size() << std::endl;
-        std::cout << "# MS/MS frames      : " << pasefData.size()  << std::endl;
-        std::cout << "# MS/MS output      : " << mgfPath           << std::endl;
-        if (extractMS1)
-            std::cout << "# MS1 output        : " << ms1Path        << std::endl;
-
-        mgfOutput << "# MS/MS spectra from TDF file: " << tdfDirectory             << "\n"
-                  << "# ZERO-FILTER ONLY - Remove only zero intensity peaks\n"
-                  << "# MGF format for protein identification\n\n";
-
-        if (extractMS1)
-            ms1Output << "# MS1 spectra from TDF file: " << tdfDirectory           << "\n"
-                      << "# Format: Frame_ID RT_seconds Scan_Number m/z Intensity Mobility\n\n";
-
-        processAllFrames(data, frames, precursors, pasefData,
-                         mgfOutput, extractMS1 ? &ms1Output : nullptr);
-
-        mgfOutput.close();
-        if (extractMS1) ms1Output.close();
-        std::cout << "Processing completed!" << std::endl;
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Exception: " << e.what() << std::endl;
-        return -1;
+        catch (const std::exception& e) {
+            std::cerr << "Exception: " << e.what() << "\n";
+            return -1;
+        }
     }
 
     return 0;
