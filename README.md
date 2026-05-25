@@ -84,6 +84,8 @@ LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread 230317_SIGRID_10_S
 LD_LIBRARY_PATH=/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64 ./timsread "230317_SIGRID_10_Slot1-41_1_4086.d" -ms1
 # Extract ALL of TDF data
 LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -tdf 260506_peptid_p10_Slot2-1_1_13559.d
+# Extract ALL of TDF_bin data
+LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -tdfbin 260506_peptid_p10_Slot2-1_1_13559.d
 ```
 
 **Takes about couple of minutes and expected default output:**

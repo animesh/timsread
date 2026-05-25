@@ -666,6 +666,250 @@ static void writeTdf(const std::string& tdfDirectory)
 }
 
 // ---------------------------------------------------------------------------
+// -tdfbin mode: dump complete binary data from analysis.tdf_bin via SDK.
+//
+// SIZE WARNING: a typical 90-min ddaPASEF run produces ~330M peaks:
+//   MS1 (~5,775 frames, all IMS scans)    : ~15 GB as TSV
+//   MS2 (~44,799 PASEF frames, all scans) :  ~5 GB as TSV
+//   Total                                 : ~20 GB
+//
+// Output is split into:
+//   <run>_tdfbin/<run>_ms1_chunk001.txt ...   (MS1 frames, ~500 MB each)
+//   <run>_tdfbin/<run>_ms2_chunk001.txt ...   (MS2 frames, ~500 MB each)
+// Format: Frame_ID\tRT_seconds\tMsMsType\tScan\tmz\tIntensity\t1_over_K0
+//
+// Differences vs existing modes:
+//   -ms1 : MS1 only, every 10th IMS scan sampled -> ~1.5 GB
+//   -tdfbin: ALL frames, ALL IMS scans, calibrated -> complete record
+//
+// Requires explicit confirmation because of output size.
+// ---------------------------------------------------------------------------
+
+static void estimateTdfBinSize(const std::string& tdfFile,
+                                int64_t& ms1Peaks, int64_t& ms2Peaks,
+                                int64_t& ms1Frames, int64_t& ms2Frames)
+{
+    ms1Peaks = ms2Peaks = ms1Frames = ms2Frames = 0;
+    sqlite3* db = openDb(tdfFile);
+    sqlite3_stmt* stmt = nullptr;
+    sqlite3_prepare_v2(db,
+        "SELECT MsMsType, COUNT(*), SUM(NumPeaks) FROM Frames GROUP BY MsMsType;",
+        -1, &stmt, nullptr);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        int     type   = sqlite3_column_int(stmt, 0);
+        int64_t nframe = sqlite3_column_int64(stmt, 1);
+        int64_t npeak  = sqlite3_column_int64(stmt, 2);
+        if (type == 0) { ms1Frames = nframe; ms1Peaks = npeak; }
+        else           { ms2Frames = nframe; ms2Peaks = npeak; }
+    }
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+}
+
+// Open the next chunk file for writing, closing the previous one if open.
+// Returns the new chunk number.
+static int openNextChunk(std::ofstream& out,
+                         const std::string& outDir,
+                         const std::string& prefix,
+                         const std::string& tag,
+                         int chunkNum,
+                         const std::string& header)
+{
+    if (out.is_open()) out.close();
+    ++chunkNum;
+    char buf[8];
+    std::snprintf(buf, sizeof(buf), "%03d", chunkNum);
+    std::string path = outDir + "/" + prefix + "_" + tag + "_chunk" + buf + ".txt";
+    out.open(path);
+    if (!out.is_open()) {
+        std::cerr << "Error: cannot open chunk file: " << path << "\n";
+        std::exit(1);
+    }
+    out << header;
+    std::cout << "  -> " << path << "\n";
+    return chunkNum;
+}
+
+static void writeTdfBin(const std::string& tdfDirectory)
+{
+    const std::string tdfFile  = tdfDirectory + "/analysis.tdf";
+    const std::string baseName = tdfDirectory.substr(tdfDirectory.find_last_of("/\\") + 1);
+    const std::string outDir   = tdfDirectory + "_tdfbin";
+
+    // Size estimate from SQLite
+    int64_t ms1Peaks, ms2Peaks, ms1Frames, ms2Frames;
+    estimateTdfBinSize(tdfFile, ms1Peaks, ms2Peaks, ms1Frames, ms2Frames);
+    int64_t totalPeaks = ms1Peaks + ms2Peaks;
+
+    const double bytesPerPeak = 60.0;  // ~60 bytes per TSV row
+    const double ms1GB  = ms1Peaks  * bytesPerPeak / 1e9;
+    const double ms2GB  = ms2Peaks  * bytesPerPeak / 1e9;
+    const double totGB  = totalPeaks * bytesPerPeak / 1e9;
+
+    const int64_t CHUNK_BYTES    = 500LL * 1024 * 1024;  // 500 MB per chunk
+    const int64_t peaksPerChunk  = static_cast<int64_t>(CHUNK_BYTES / bytesPerPeak);
+    int ms1Chunks = static_cast<int>((ms1Peaks  + peaksPerChunk - 1) / peaksPerChunk);
+    int ms2Chunks = static_cast<int>((ms2Peaks  + peaksPerChunk - 1) / peaksPerChunk);
+
+    std::cout << "\n=== analysis.tdf_bin full extraction ===\n"
+              << "  MS1 : " << ms1Frames << " frames, "
+              << ms1Peaks  << " peaks  ->  ~" << std::fixed << std::setprecision(1)
+              << ms1GB << " GB  (" << ms1Chunks << " chunk(s))\n"
+              << "  MS2 : " << ms2Frames << " frames, "
+              << ms2Peaks  << " peaks  ->  ~" << ms2GB << " GB  (" << ms2Chunks << " chunk(s))\n"
+              << "  Total                     ->  ~" << totGB << " GB\n\n"
+              << "  Output: " << outDir << "/\n"
+              << "  Format: Frame_ID  RT_seconds  MsMsType  Scan  mz  Intensity  1_over_K0\n\n";
+
+    // Confirmation prompt - require explicit 'y'
+    std::cout << "Proceed? This will write ~" << std::setprecision(1) << totGB
+              << " GB to disk. [y/N] " << std::flush;
+    std::string answer;
+    std::getline(std::cin, answer);
+    if (answer.empty() || (answer[0] != 'y' && answer[0] != 'Y')) {
+        std::cout << "Aborted.\n";
+        return;
+    }
+
+    std::string mkdirCmd = "mkdir -p \"" + outDir + "\"";
+    if (std::system(mkdirCmd.c_str()) != 0) {
+        std::cerr << "Error: cannot create output directory: " << outDir << "\n";
+        std::exit(1);
+    }
+
+    // Open SDK
+    timsdata::TimsData data(tdfDirectory);
+    auto calId = data.getCalibrationId();
+    std::cout << "# Calibration: "
+              << (calId.has_value() ? calId.value() : "instrument default") << "\n";
+
+    // Load all frames from SQLite
+    sqlite3* db = openDb(tdfFile);
+    auto frames = loadFrames(db);
+    sqlite3_close(db);
+
+    const std::string colHeader =
+        "# Frame_ID\tRT_seconds\tMsMsType\tScan\tmz\tIntensity\t1_over_K0\n";
+
+    // Chunk file handles
+    std::ofstream ms1Out, ms2Out;
+    int ms1ChunkNum = 0, ms2ChunkNum = 0;
+    int64_t ms1PeaksSoFar = 0, ms2PeaksSoFar = 0;
+
+    // Pre-allocated reuse buffers
+    std::vector<double> indices, mzVec, scanVec(1), k0Vec;
+    indices.reserve(4096);
+    mzVec.reserve(4096);
+
+    std::ostringstream buf;
+    {   // pre-size the underlying string buffer to 8 MB to reduce reallocations
+        std::string pre(8 * 1024 * 1024, '\0');
+        buf.str(std::move(pre));
+        buf.str("");   // reset position to 0, capacity retained
+        buf.clear();
+    }
+    const int FLUSH_EVERY = 200;   // flush buffer every N frames
+
+    int64_t totalPeaksWritten = 0;
+    int totalFrames = static_cast<int>(frames.size());
+
+    std::cerr << "Extracting...\n";
+
+    for (int i = 0; i < totalFrames; ++i) {
+        const FrameInfo& fr = frames[i];
+        bool isMS1 = (fr.msMsType == 0);
+
+        // Progress
+        if ((i + 1) % 2000 == 0 || i == totalFrames - 1) {
+            int pct = ((i + 1) * 100) / totalFrames;
+            std::cerr << "\r  " << pct << "% (" << (i + 1) << "/" << totalFrames
+                      << ")  written: " << totalPeaksWritten << " peaks   ";
+            std::cerr.flush();
+        }
+
+        // Open first chunk or roll to next if size exceeded
+        if (isMS1) {
+            if (!ms1Out.is_open() || ms1PeaksSoFar >= peaksPerChunk) {
+                ms1ChunkNum = openNextChunk(ms1Out, outDir, baseName, "ms1",
+                                            ms1ChunkNum, colHeader);
+                ms1PeaksSoFar = 0;
+            }
+        } else {
+            if (!ms2Out.is_open() || ms2PeaksSoFar >= peaksPerChunk) {
+                ms2ChunkNum = openNextChunk(ms2Out, outDir, baseName, "ms2",
+                                            ms2ChunkNum, colHeader);
+                ms2PeaksSoFar = 0;
+            }
+        }
+
+        std::ofstream& out = isMS1 ? ms1Out : ms2Out;
+
+        // Read all scans in this frame
+        auto scans = data.readScans(fr.id, 0, fr.numScans);
+
+        // Batch-convert ALL scan numbers to 1/K0 for this frame at once
+        int ns = static_cast<int>(scans.getNbrScans());
+        std::vector<double> allScans(ns);
+        for (int s = 0; s < ns; ++s) allScans[s] = static_cast<double>(s);
+        std::vector<double> allK0(ns);
+        data.scanNumToOneOverK0(fr.id, allScans, allK0);
+
+        buf.str(""); buf.clear();
+        buf << std::fixed << std::setprecision(6);
+
+        int64_t framePeaks = 0;
+        for (int scan = 0; scan < ns; ++scan) {
+            auto nPeaks = scans.getNbrPeaks(scan);
+            if (nPeaks == 0) continue;
+
+            auto xAxis = scans.getScanX(scan);
+            auto yAxis = scans.getScanY(scan);
+
+            indices.assign(xAxis.first, xAxis.second);
+            mzVec.resize(indices.size());
+            data.indexToMz(fr.id, indices, mzVec);
+
+            double k0 = allK0[scan];
+
+            for (size_t k = 0; k < nPeaks; ++k) {
+                uint32_t rawInt = yAxis.first[k];
+                if (rawInt == 0) continue;
+                buf << fr.id       << "\t"
+                    << fr.time     << "\t"
+                    << fr.msMsType << "\t"
+                    << scan        << "\t"
+                    << mzVec[k]    << "\t"
+                    << rawInt      << "\t"
+                    << k0          << "\n";
+                ++framePeaks;
+            }
+        }
+
+        out << buf.str();
+
+        if (isMS1) ms1PeaksSoFar  += framePeaks;
+        else       ms2PeaksSoFar  += framePeaks;
+        totalPeaksWritten          += framePeaks;
+
+        // Periodic OS-level flush to avoid huge OS buffer
+        if ((i + 1) % FLUSH_EVERY == 0) {
+            ms1Out.flush();
+            ms2Out.flush();
+        }
+    }
+
+    if (ms1Out.is_open()) ms1Out.close();
+    if (ms2Out.is_open()) ms2Out.close();
+
+    std::cerr << "\n";
+    std::cout << "\nDone.\n"
+              << "  Total peaks written : " << totalPeaksWritten << "\n"
+              << "  MS1 chunks          : " << ms1ChunkNum << "\n"
+              << "  MS2 chunks          : " << ms2ChunkNum << "\n"
+              << "  Output              : " << outDir << "/\n";
+}
+
+// ---------------------------------------------------------------------------
 // -sql mode: frame metadata only, no SDK binary read
 // Output: Frame_ID  RT_seconds  MsMsType  MaxIntensity  SummedIntensities
 //         NumScans  NumPeaks
@@ -908,15 +1152,20 @@ static void processAllFrames(
 
 int main(int argc, char* argv[])
 {
-    if (argc < 2 || argc > 6) {
-        std::cerr << "Usage: " << argv[0] << " <file.d> [-ms1] [-sql] [-chrom] [-tdf]" << std::endl;
-        std::cerr << "  (no flag)  Extract MS/MS to _msms.mgf"                         << std::endl;
-        std::cerr << "  -ms1       Also extract MS1 binary data to _ms1.txt"           << std::endl;
-        std::cerr << "  -sql       Dump Frames table from analysis.tdf (no SDK)"       << std::endl;
-        std::cerr << "  -chrom     Extract all nanoElute + MS traces from"             << std::endl;
-        std::cerr << "             chromatography-data.sqlite and -pre.sqlite"         << std::endl;
-        std::cerr << "  -tdf       Dump ALL analysis.tdf tables as TSV + SDK"         << std::endl;
-        std::cerr << "             calibration tables from analysis.tdf_bin"           << std::endl;
+    if (argc < 2 || argc > 7) {
+        std::cerr << "Usage: " << argv[0]
+                  << " <file.d> [-ms1] [-sql] [-chrom] [-tdf] [-tdfbin]\n"
+                  << "  (no flag)  Extract MS/MS to _msms.mgf\n"
+                  << "  -ms1       Also extract MS1 (every 10th IMS scan) to _ms1.txt\n"
+                  << "  -sql       Dump Frames table from analysis.tdf (no SDK)\n"
+                  << "  -chrom     Extract all nanoElute + MS traces from\n"
+                  << "             chromatography-data.sqlite and -pre.sqlite\n"
+                  << "  -tdf       Dump ALL analysis.tdf tables as TSV + SDK\n"
+                  << "             calibration tables from analysis.tdf_bin\n"
+                  << "  -tdfbin    Dump complete binary data: ALL frames, ALL IMS\n"
+                  << "             scans, calibrated mz + 1/K0. ~20 GB for 90-min\n"
+                  << "             run. Chunked into ~500 MB files. Requires\n"
+                  << "             interactive confirmation before writing.\n";
         return -1;
     }
 
@@ -924,15 +1173,17 @@ int main(int argc, char* argv[])
     bool sqlOnly    = false;
     bool chromOnly  = false;
     bool tdfOnly    = false;
+    bool tdfBin     = false;
     std::string tdfDirectory;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
-        if      (arg == "-ms1")   extractMS1 = true;
-        else if (arg == "-sql")   sqlOnly    = true;
-        else if (arg == "-chrom") chromOnly  = true;
-        else if (arg == "-tdf")   tdfOnly    = true;
-        else if (arg[0] != '-')   tdfDirectory = arg;
+        if      (arg == "-ms1")    extractMS1 = true;
+        else if (arg == "-sql")    sqlOnly    = true;
+        else if (arg == "-chrom")  chromOnly  = true;
+        else if (arg == "-tdf")    tdfOnly    = true;
+        else if (arg == "-tdfbin") tdfBin     = true;
+        else if (arg[0] != '-')    tdfDirectory = arg;
         else {
             std::cerr << "Unknown option: " << arg << std::endl;
             return -1;
@@ -969,6 +1220,12 @@ int main(int argc, char* argv[])
     if (tdfOnly) {
         std::cout << "Dumping all TDF tables from " << tdfDirectory << " ..." << std::endl;
         writeTdf(tdfDirectory);
+        return 0;
+    }
+
+    // -tdfbin mode: complete binary dump of all frames and IMS scans
+    if (tdfBin) {
+        writeTdfBin(tdfDirectory);
         return 0;
     }
 
