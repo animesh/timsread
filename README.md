@@ -1,6 +1,11 @@
 # Installation Instructions for timsread
 
-`timsread` is a high-performance C++ tool for converting Bruker TimsTOF (TDF) files to MGF format for MS/MS proteomics analysis. This repository includes both the standalone C++ executable and a Nextflow pipeline for automated, scalable processing.
+`timsread` is a C++ tool for reading Bruker TimsTOF (TDF) files
+
+```
+g++ -O3 -march=native -std=c++17 -I../timsdata_5_0_2/timsdata/include/c   -I../timsdata_5_0_2/timsdata/examples/timsdataSampleCpp/timsdataSampleCpp   -o timsread timsread.cpp   -L../timsdata_5_0_2/timsdata/linux64 -ltimsdata -lsqlite3
+LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -sql 230317_SIGRID_10_Slot1-41_1_4086.d
+```
 
 ## Table of Contents
 1. [Download Required SDK and Libraries](#1-download-required-sdk-and-libraries)
@@ -9,22 +14,19 @@
 4. [Set Up Include Paths](#4-set-up-include-paths)
 5. [Compile](#5-compile)
 6. [Run](#6-run)
+#### TBD
 7. [Nextflow Pipeline](#7-nextflow-pipeline)
 8. [Performance Notes](#performance-notes)
 9. [Quality Comparison](#quality-comparison)
-10. [License](#license)
 
 ## 1. Download Required SDK and Libraries
 
-- **Bruker timsdata SDK**: [TDF-SDK 2.21 (6 MB)](https://www.bruker.com/protected/en/services/software-downloads/mass-spectrometry/raw-data-access-libraries.html?scrollToFormContent=tdf)
-    - Download the file: `timsdata-2.21.0.4.zip` (or latest version)
-- **CppSQLite3**: [CppSQLite3 GitHub](https://github.com/neosmart/CppSQLite)
-    - Download the source: `CppSQLite-master.zip` (or clone the repo)
+- **Bruker timsdata SDK**: [TDF-SDK 5_0_2  (~7 MB)](https://www.bruker.com/protected/en/services/software-downloads/mass-spectrometry/raw-data-access-libraries.html?scrollToFormContent=tdf)
+    - [Download](https://customer-download-bbio.bruker.com/d/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzk2OTQ0MjIsImlhdCI6MTc3OTY5NDQyMiwiZmlsZSI6Ii9CREFML0xTTVMvUmF3RGF0YUFjZXNzTGlicmFyaWVzL3RkZl9zZGtfNS4wL3RpbXNkYXRhXzVfMF8yLnppcCJ9.mnTfmEwByeDYcXx5kG6NPiJi_pD181koZelcJqI04Jg) the file: `timsdata_5_0_2.zip` (or recent?)
 
 ## 2. Extract Files
 
-- Extract `timsdata-2.21.0.4.zip` to a directory, e.g., `Z:\Download\timsdata-2.21.0.4`.
-- Extract `CppSQLite-master.zip` to a directory, e.g., `Z:\Download\CppSQLite-master`.
+- Extract `timsdata_5_0_2.zip` to a directory, e.g., `../timsdata_5_0_2`.
 
 ## 3. Install System Dependencies (on Debian/Ubuntu/WSL2)
 
@@ -36,20 +38,18 @@ sudo apt-get install -y g++ sqlite3 libsqlite3-dev
 ## 4. Set Up Include Paths
 
 You will need the following include directories:
-- `CppSQLite-master/src` (contains `CppSQLite3.h` and `CppSQLite3.cpp`)
-- `timsdata-2.21.0.4/timsdata/include/c` (contains `timsdata.h`)
-- `timsdata-2.21.0.4/timsdata/examples/timsdataSampleCpp/timsdataSampleCpp` (contains `timsdata_cpp.h`)
+- `../timsdata_5_0_2/timsdata/include/c` (contains `timsdata.h`)
+- `../timsdata_5_0_2/timsdata/examples/timsdataSampleCpp/timsdataSampleCpp` (contains `timsdata_cpp.h`)
 
 ## 5. Compile
 
 From the project directory, run:
 
 ```
-g++ -O3 -march=native -I/mnt/z/Download/CppSQLite-master/src -I/mnt/z/Download/timsdata-2.21.0.4/timsdata/include/c -I/mnt/z/Download/timsdata-2.21.0.4/timsdata/examples/timsdataSampleCpp/timsdataSampleCpp -o timsread timsread.cpp -L/mnt/z/Download/CppSQLite-master/src -lCppSQLite3 -L/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64 -ltimsdata -lsqlite3
+g++ -O3 -march=native -std=c++17 -I../timsdata_5_0_2/timsdata/include/c   -I../timsdata_5_0_2/timsdata/examples/timsdataSampleCpp/timsdataSampleCpp   -o timsread timsread.cpp   -L../timsdata_5_0_2/timsdata/linux64 -ltimsdata -lsqlite3
 ```
 
-- Adjust the `/mnt/z/Download/...` paths if your files are located elsewhere.
-- The `-O3 -march=native` flags enable optimizations for better performance.
+- Adjust the `../timsdata_5_0_2/timsdata/` paths if your files are located elsewhere.
 - On Windows, use the appropriate path format and a compatible compiler (e.g., MSVC).
 
 ## 6. Run
@@ -66,6 +66,7 @@ The program converts Bruker TDF files to MGF format for MS/MS spectra and option
 wget https://ftp.pride.ebi.ac.uk/pride/data/archive/2024/06/PXD045439/230317_SIGRID_10_Slot1-41_1_4086.d.tar
 tar xvf 230317_SIGRID_10_Slot1-41_1_4086.d.tar
 # sanity check
+sudo apt install sqlite3
 sqlite3 "230317_SIGRID_10_Slot1-41_1_4086.d/analysis.tdf" "SELECT COUNT(*) as null_mz FROM Precursors WHERE MonoisotopicMz IS NULL; SELECT COUNT(*) as negative_mz FROM Precursors WHERE MonoisotopicMz < 0;"
 5314
 0
@@ -73,8 +74,10 @@ sqlite3 "230317_SIGRID_10_Slot1-41_1_4086.d/analysis.tdf" "SELECT COUNT(*) as nu
 
 **set library path and run:**
 ```bash
-# Extract MS/MS data only (default and faster)
-LD_LIBRARY_PATH=/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64 ./timsread 230317_SIGRID_10_Slot1-41_1_4086.d
+# Extract SQL data only (faster)
+LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -sql 230317_SIGRID_10_Slot1-41_1_4086.d
+# Extract SQL data only (default)
+LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread 230317_SIGRID_10_Slot1-41_1_4086.d
 # Extract both MS/MS and MS1 data
 LD_LIBRARY_PATH=/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64 ./timsread "230317_SIGRID_10_Slot1-41_1_4086.d" -ms1
 ```
@@ -118,13 +121,15 @@ Processing completed!
 - **`*.d_msms.mgf`**: MS/MS spectra in MGF format for protein identification
 - **`*.d_ms1.txt`**: MS1 spectra (if `-ms1` flag used) with format: `Frame_ID RT_seconds Scan_Number m/z Intensity Mobility`
 
+# TBD
+
 ## 7. Nextflow Pipeline
 
 This repository includes a Nextflow pipeline (`nextflow.nf`) for automated processing of TDF files using the `timsread` tool.
 
 ### Prerequisites for Nextflow Pipeline:
 - [Nextflow](https://www.nextflow.io/) installed
-- Bruker timsdata SDK available at `/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64`
+- Bruker timsdata SDK available at `timsdata/linux64`
 - Compiled `timsread` executable in the project directory
 
 ### Pipeline Usage:
