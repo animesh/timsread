@@ -74,6 +74,8 @@ sqlite3 "230317_SIGRID_10_Slot1-41_1_4086.d/analysis.tdf" "SELECT COUNT(*) as nu
 
 **set library path and run:**
 ```bash
+# Extract chromatogram data 
+LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -chrom 230317_SIGRID_10_Slot1-41_1_4086.d 
 # Extract SQL data only (faster)
 LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread -sql 230317_SIGRID_10_Slot1-41_1_4086.d
 # Extract SQL data only (default)

@@ -6,9 +6,14 @@
  * Usage:
  *   ./timsread <file.d>          -- extract MS/MS to .mgf
  *   ./timsread <file.d> -ms1     -- also extract MS1 binary data to _ms1.txt
- *   ./timsread <file.d> -sql     -- fast: dump frame RT/intensity table from
- *                                   SQLite only, no SDK binary read needed.
- *                                   Use for BPC/TIC plots via timsplot.py.
+ *   ./timsread <file.d> -sql     -- fast: dump Frames table from analysis.tdf
+ *                                   (no SDK binary read). Gives RT, MsMsType,
+ *                                   MaxIntensity, SummedIntensities per frame.
+ *   ./timsread <file.d> -chrom   -- extract all traces from both
+ *                                   chromatography-data.sqlite (run) and
+ *                                   chromatography-data-pre.sqlite (pre-run):
+ *                                   BPC, TIC, nanoElute flow/pressure/gradient/
+ *                                   temperature/valves. One TSV per trace.
  *
  * Build:
  *   g++ -O3 -march=native -std=c++17 \
@@ -144,6 +149,236 @@ static std::unordered_map<int, std::vector<PasefInfo>> loadPasef(sqlite3* db)
     }
     sqlite3_finalize(stmt);
     return pasef;
+}
+
+// ---------------------------------------------------------------------------
+// -chrom mode: decode all TraceChunks from chromatography-data.sqlite
+// Blob encoding: Times = little-endian float64, Intensities = little-endian float32
+// Both chromatography-data.sqlite (run) and chromatography-data-pre.sqlite (pre-run)
+// are processed. One output TSV per trace, named by trace description.
+// ---------------------------------------------------------------------------
+
+// Unit codes observed in TraceSources.Unit
+static const char* unitName(int unit)
+{
+    switch (unit) {
+        case 2: return "mL_per_min";
+        case 3: return "bar";
+        case 4: return "uL";
+        case 5: return "degC";
+        case 6: return "counts";
+        case 7: return "deg";
+        default: return "unknown";
+    }
+}
+
+// Sanitise a trace description for use as a filename component
+static std::string sanitiseDesc(const std::string& desc)
+{
+    std::string out;
+    for (char c : desc) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_')
+            out += c;
+        else if (c == ' ' || c == ',' || c == '/' || c == '\\' || c == '+')
+            out += '_';
+        // skip everything else (e.g. ± unicode)
+    }
+    // collapse consecutive underscores
+    std::string clean;
+    bool last_under = false;
+    for (char c : out) {
+        if (c == '_') {
+            if (!last_under) clean += c;
+            last_under = true;
+        } else {
+            clean += c;
+            last_under = false;
+        }
+    }
+    // trim trailing underscore
+    while (!clean.empty() && clean.back() == '_') clean.pop_back();
+    return clean;
+}
+
+static void writeChromFile(sqlite3* db, int traceId,
+                           const std::string& desc, int unitCode,
+                           const std::string& instrument,
+                           const std::string& outDir,
+                           const std::string& prefix)
+{
+    // Collect all chunks for this trace, ordered by rowid
+    sqlite3_stmt* stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT Times, Intensities FROM TraceChunks WHERE Trace=? ORDER BY rowid;",
+        -1, &stmt, nullptr);
+    sqlCheck(rc, db, "writeChromFile:prepare");
+
+    sqlite3_bind_int(stmt, 1, traceId);
+
+    std::vector<double> times;
+    std::vector<float>  intens;
+    times.reserve(8192);
+    intens.reserve(8192);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const void* tBlob = sqlite3_column_blob(stmt, 0);
+        int         tBytes = sqlite3_column_bytes(stmt, 0);
+        const void* iBlob = sqlite3_column_blob(stmt, 1);
+        int         iBytes = sqlite3_column_bytes(stmt, 1);
+
+        if (!tBlob || !iBlob || tBytes <= 0 || iBytes <= 0) continue;
+
+        // Times: float64 (8 bytes each)
+        size_t nT = static_cast<size_t>(tBytes) / 8;
+        const double* tPtr = reinterpret_cast<const double*>(tBlob);
+        times.insert(times.end(), tPtr, tPtr + nT);
+
+        // Intensities: float32 (4 bytes each)
+        size_t nI = static_cast<size_t>(iBytes) / 4;
+        const float* iPtr = reinterpret_cast<const float*>(iBlob);
+        intens.insert(intens.end(), iPtr, iPtr + nI);
+    }
+    sqlite3_finalize(stmt);
+
+    if (times.empty()) return;  // trace has no data - skip silently
+
+    // Use the smaller count in case of any mismatch
+    size_t nPts = std::min(times.size(), intens.size());
+
+    std::string safeName = sanitiseDesc(desc);
+    std::string outPath  = outDir + "/" + prefix + "_trace_" + safeName + ".txt";
+
+    std::ofstream out(outPath);
+    if (!out.is_open()) {
+        std::cerr << "Warning: cannot open " << outPath << " - skipping trace " << traceId << std::endl;
+        return;
+    }
+
+    // Header
+    out << "# Trace_ID: "   << traceId    << "\n"
+        << "# Description: " << desc       << "\n"
+        << "# Instrument: "  << instrument << "\n"
+        << "# Unit: "        << unitName(unitCode) << "\n"
+        << "# Points: "      << nPts       << "\n"
+        << "Time_seconds\tTime_minutes\tValue\n";
+
+    out << std::fixed << std::setprecision(6);
+    for (size_t k = 0; k < nPts; ++k) {
+        out << times[k]       << "\t"
+            << times[k]/60.0  << "\t"
+            << intens[k]      << "\n";
+    }
+    out.close();
+
+    std::cout << "  [" << std::setw(2) << traceId << "] "
+              << std::left << std::setw(32) << desc
+              << std::right
+              << std::setw(6) << nPts << " pts  "
+              << unitName(unitCode) << "  -> "
+              << outPath << "\n";
+}
+
+static void writeChromFromFile(const std::string& chromFile,
+                               const std::string& outDir,
+                               const std::string& prefix)
+{
+    if (!std::ifstream(chromFile).good()) {
+        std::cout << "  (not found: " << chromFile << " - skipping)\n";
+        return;
+    }
+
+    sqlite3* db = openDb(chromFile);
+
+    // Read TraceSources metadata
+    sqlite3_stmt* src = nullptr;
+    sqlite3_prepare_v2(db,
+        "SELECT Id, Description, Instrument, Unit FROM TraceSources ORDER BY Id;",
+        -1, &src, nullptr);
+
+    struct TraceMeta { int id; std::string desc, instrument; int unit; };
+    std::vector<TraceMeta> sources;
+    while (sqlite3_step(src) == SQLITE_ROW) {
+        TraceMeta m;
+        m.id         = sqlite3_column_int(src, 0);
+        m.desc       = reinterpret_cast<const char*>(sqlite3_column_text(src, 1));
+        m.instrument = reinterpret_cast<const char*>(sqlite3_column_text(src, 2));
+        m.unit       = sqlite3_column_int(src, 3);
+        sources.push_back(m);
+    }
+    sqlite3_finalize(src);
+
+    // Get set of traces that actually have data
+    sqlite3_stmt* have = nullptr;
+    sqlite3_prepare_v2(db,
+        "SELECT DISTINCT Trace FROM TraceChunks;", -1, &have, nullptr);
+    std::unordered_map<int,bool> hasData;
+    while (sqlite3_step(have) == SQLITE_ROW)
+        hasData[sqlite3_column_int(have, 0)] = true;
+    sqlite3_finalize(have);
+
+    // Write one file per populated trace
+    for (const TraceMeta& m : sources) {
+        if (hasData.count(m.id))
+            writeChromFile(db, m.id, m.desc, m.unit, m.instrument, outDir, prefix);
+    }
+
+    // Also write a summary TSV: one row per trace with statistics
+    std::string summaryPath = outDir + "/" + prefix + "_chrom_summary.txt";
+    sqlite3_stmt* stats = nullptr;
+    sqlite3_prepare_v2(db,
+        "SELECT ts.Id, ts.Description, ts.Unit, "
+        "       COALESCE(tst.Count,0), COALESCE(tst.MinValue,0), "
+        "       COALESCE(tst.MaxValue,0), COALESCE(tst.ArithmeticMean,0) "
+        "FROM TraceSources ts "
+        "LEFT JOIN TraceStatistics tst ON ts.Id = tst.Trace "
+        "ORDER BY ts.Id;",
+        -1, &stats, nullptr);
+
+    std::ofstream sumOut(summaryPath);
+    sumOut << "Trace_ID\tDescription\tUnit\tCount\tMinValue\tMaxValue\tMean\n";
+    sumOut << std::fixed << std::setprecision(4);
+    while (sqlite3_step(stats) == SQLITE_ROW) {
+        sumOut << sqlite3_column_int(stats, 0)    << "\t"
+               << sqlite3_column_text(stats, 1)   << "\t"
+               << unitName(sqlite3_column_int(stats, 2)) << "\t"
+               << sqlite3_column_int(stats, 3)    << "\t"
+               << sqlite3_column_double(stats, 4) << "\t"
+               << sqlite3_column_double(stats, 5) << "\t"
+               << sqlite3_column_double(stats, 6) << "\n";
+    }
+    sqlite3_finalize(stats);
+    sumOut.close();
+    std::cout << "  Summary -> " << summaryPath << "\n";
+
+    sqlite3_close(db);
+}
+
+static void writeChrom(const std::string& tdfDirectory)
+{
+    // chromatography-data.sqlite and chromatography-data-pre.sqlite
+    // live inside the .d directory alongside analysis.tdf
+    std::string runFile  = tdfDirectory + "/chromatography-data.sqlite";
+    std::string preFile  = tdfDirectory + "/chromatography-data-pre.sqlite";
+    std::string baseName = tdfDirectory.substr(tdfDirectory.find_last_of("/\\") + 1);
+
+    // Output goes next to the .d directory, prefixed with the run name
+    // e.g. 260506_peptid_p10_Slot2-1_1_13559_chrom/
+    std::string outDir = tdfDirectory + "_chrom";
+
+    // Create output directory via system() - avoids <filesystem> dependency
+    std::string mkdirCmd = "mkdir -p \"" + outDir + "\"";
+    if (std::system(mkdirCmd.c_str()) != 0) {
+        std::cerr << "Error: cannot create output directory: " << outDir << std::endl;
+        std::exit(1);
+    }
+
+    std::cout << "\n--- Run chromatography: " << runFile << " ---\n";
+    writeChromFromFile(runFile,  outDir, baseName + "_run");
+
+    std::cout << "\n--- Pre-run chromatography: " << preFile << " ---\n";
+    writeChromFromFile(preFile, outDir, baseName + "_pre");
+
+    std::cout << "\nOutput directory: " << outDir << "\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -389,23 +624,27 @@ static void processAllFrames(
 
 int main(int argc, char* argv[])
 {
-    if (argc < 2 || argc > 4) {
-        std::cerr << "Usage: " << argv[0] << " <file.d> [-ms1] [-sql]" << std::endl;
-        std::cerr << "  (no flag)  Extract MS/MS to _msms.mgf"         << std::endl;
-        std::cerr << "  -ms1       Also extract MS1 binary data"        << std::endl;
-        std::cerr << "  -sql       Fast: frame RT/intensity from SQLite only" << std::endl;
+    if (argc < 2 || argc > 5) {
+        std::cerr << "Usage: " << argv[0] << " <file.d> [-ms1] [-sql] [-chrom]" << std::endl;
+        std::cerr << "  (no flag)  Extract MS/MS to _msms.mgf"                   << std::endl;
+        std::cerr << "  -ms1       Also extract MS1 binary data to _ms1.txt"     << std::endl;
+        std::cerr << "  -sql       Dump Frames table from analysis.tdf (no SDK)" << std::endl;
+        std::cerr << "  -chrom     Extract all traces from chromatography-data"  << std::endl;
+        std::cerr << "             .sqlite and -pre.sqlite (BPC/TIC/flow/etc)"   << std::endl;
         return -1;
     }
 
     bool extractMS1 = false;
     bool sqlOnly    = false;
+    bool chromOnly  = false;
     std::string tdfDirectory;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
-        if      (arg == "-ms1")  extractMS1 = true;
-        else if (arg == "-sql")  sqlOnly    = true;
-        else if (arg[0] != '-')  tdfDirectory = arg;
+        if      (arg == "-ms1")   extractMS1 = true;
+        else if (arg == "-sql")   sqlOnly    = true;
+        else if (arg == "-chrom") chromOnly  = true;
+        else if (arg[0] != '-')   tdfDirectory = arg;
         else {
             std::cerr << "Unknown option: " << arg << std::endl;
             return -1;
@@ -428,6 +667,13 @@ int main(int argc, char* argv[])
     if (sqlOnly) {
         std::cout << "Loading frame metadata from " << tdfFile << " ..." << std::endl;
         writeSqlFrames(tdfFile, tdfDirectory + "_frames.txt");
+        return 0;
+    }
+
+    // -chrom mode: decode chromatography-data.sqlite + pre file
+    if (chromOnly) {
+        std::cout << "Extracting chromatography traces from " << tdfDirectory << " ..." << std::endl;
+        writeChrom(tdfDirectory);
         return 0;
     }
 
