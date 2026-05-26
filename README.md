@@ -111,30 +111,419 @@ user    3m54.451s
 sys     0m16.221s
 ```
 
-**`-tdfbin` switch:**
-note that `timsread` warns about the sizes, default is to NOT proceed, press `y` to continue...
 
 **Expected output with `-ms1` switch:**
 ```
-LD_LIBRARY_PATH=/mnt/z/Download/timsdata-2.21.0.4/timsdata/linux64 ./timsread "230317_SIGRID_10_Slot1-41_1_4086.d" -ms1
+time LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread2 -ms1 230317_SIGRID_10_Slot1-41_1_4086.d
+# Calibration     : instrument default
 Loading metadata...
-# TDF file 230317_SIGRID_10_Slot1-41_1_4086.d contains 66477 frames.
-# Loaded 291844 precursors and 56501 MS/MS frames.
-# MS/MS data written to: 230317_SIGRID_10_Slot1-41_1_4086.d_msms.mgf
-# MS1 data written to: 230317_SIGRID_10_Slot1-41_1_4086.d_ms1.txt
-
+# TDF file          : 230317_SIGRID_10_Slot1-41_1_4086.d
+# Total frames      : 66477
+# Precursors loaded : 291844
+# MS/MS frames      : 56501
+# MGF output        : 230317_SIGRID_10_Slot1-41_1_4086.d_msms.mgf
+# MS1 output        : 230317_SIGRID_10_Slot1-41_1_4086.d_ms1.txt
 Processing frames...
-Progress: 100% (66477/66477) MS1:9975 MS2:56501     
-Total frames processed: 66477
-MS1 frames: 9976
-MS/MS frames: 56501
-Skipped precursors with invalid m/z: 8268
-Processing completed!
+Progress: 100% (66477/66477) MS1:9975 MS2:56501 
+Total frames processed : 66477
+MS1 frames             : 9976
+MS/MS frames           : 56501
+Skipped (invalid m/z)  : 8268
+MGF extraction completed.
+
+real    16m24.490s
+user    11m0.906s
+sys     0m38.002s
 ```
 
 ### Output Files:
 - **`*.d_msms.mgf`**: MS/MS spectra in MGF format for protein identification
 - **`*.d_ms1.txt`**: MS1 spectra (if `-ms1` flag used) with format: `Frame_ID RT_seconds Scan_Number m/z Intensity Mobility`
+
+
+**Expected output with `-tdf` switch:**
+```
+time LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread2 -tdf 230317_SIGRID_10_Slot1-41_1_4086.d
+Dumping all TDF tables from 230317_SIGRID_10_Slot1-41_1_4086.d ...
+
+--- analysis.tdf tables (230317_SIGRID_10_Slot1-41_1_4086.d/analysis.tdf) ---
+  Found view: Properties
+  Found table: CalibrationInfo
+  Found table: CollisionEnergySweepingInfo
+  Found table: DiaFrameMsMsInfo
+  Found table: DiaFrameMsMsWindowGroups
+  Found table: DiaFrameMsMsWindows
+  Found table: ErrorLog
+  Found table: FrameMsMsInfo
+  Found table: FrameProperties
+  Found table: Frames
+  Found table: GlobalMetadata
+  Found table: GroupProperties
+  Found table: MzCalibration
+  Found table: PasefFrameMsMsInfo
+  Found table: Precursors
+  Found table: PrmFrameMeasurementMode
+  Found table: PrmFrameMsMsInfo
+  Found table: PrmTargets
+  Found table: PropertyDefinitions
+  Found table: PropertyGroups
+  Found table: Segments
+  Found table: TimsCalibration
+
+Dumping 22 tables/views...
+  Properties                        28651587 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_Properties.txt
+  CalibrationInfo                         27 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_CalibrationInfo.txt
+  CollisionEnergySweepingInfo              0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_CollisionEnergySweepingInfo.txt
+  DiaFrameMsMsInfo                         0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_DiaFrameMsMsInfo.txt
+  DiaFrameMsMsWindowGroups                 0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_DiaFrameMsMsWindowGroups.txt
+  DiaFrameMsMsWindows                      0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_DiaFrameMsMsWindows.txt
+  ErrorLog                                 0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_ErrorLog.txt
+  FrameMsMsInfo                            0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_FrameMsMsInfo.txt
+  FrameProperties                    9145262 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_FrameProperties.txt
+  Frames                               66477 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_Frames.txt
+  GlobalMetadata                          36 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_GlobalMetadata.txt
+  GroupProperties                        267 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_GroupProperties.txt
+  MzCalibration                            1 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_MzCalibration.txt
+  PasefFrameMsMsInfo                  542469 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_PasefFrameMsMsInfo.txt
+  Precursors                          291844 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_Precursors.txt
+  PrmFrameMeasurementMode                  0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_PrmFrameMeasurementMode.txt
+  PrmFrameMsMsInfo                         0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_PrmFrameMsMsInfo.txt
+  PrmTargets                               0 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_PrmTargets.txt
+  PropertyDefinitions                    431 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_PropertyDefinitions.txt
+  PropertyGroups                           1 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_PropertyGroups.txt
+  Segments                                 1 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_Segments.txt
+  TimsCalibration                          1 rows -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_TimsCalibration.txt
+
+--- analysis.tdf_bin SDK calibration ---
+  Frame 1 (MS1)  mz_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_mz_frame1_MS1.txt
+             1k0_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_1k0_frame1_MS1.txt
+  Frame 8 (MS1)  mz_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_mz_frame8_MS1.txt
+             1k0_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_1k0_frame8_MS1.txt
+  Frame 19 (MS1)  mz_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_mz_frame19_MS1.txt
+             1k0_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_1k0_frame19_MS1.txt
+  Frame 2 (MS2)  mz_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_mz_frame2_MS2.txt
+             1k0_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_1k0_frame2_MS2.txt
+  Frame 3 (MS2)  mz_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_mz_frame3_MS2.txt
+             1k0_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_1k0_frame3_MS2.txt
+  Frame 4 (MS2)  mz_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_mz_frame4_MS2.txt
+             1k0_calib -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_1k0_frame4_MS2.txt
+  Calibration summary -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdf/230317_SIGRID_10_Slot1-41_1_4086.d_calib_summary.txt
+
+Output directory: 230317_SIGRID_10_Slot1-41_1_4086.d_tdf
+
+real    3m54.514s
+user    1m4.579s
+sys     0m10.615s
+```
+
+**`-tdfbin` switch:**
+note that `timsread` warns about the sizes, default is to NOT proceed, press `y` to continue...
+```
+time LD_LIBRARY_PATH=../timsdata_5_0_2/timsdata/linux64 ./timsread2 -tdfbin 230317_SIGRID_10_Slot1-41_1_4086.d
+
+=== analysis.tdf_bin full extraction ===
+  MS1 : 9976 frames, 2183426604 peaks  ->  ~131.0 GB  (250 chunk(s))
+  MS2 : 56501 frames, 302769315 peaks  ->  ~18.2 GB  (35 chunk(s))
+  Total                     ->  ~149.2 GB
+
+  Output: 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/
+  Format: Frame_ID  RT_seconds  MsMsType  Scan  mz  Intensity  1_over_K0
+
+Proceed? This will write ~149.2 GB to disk. [y/N] y
+# Calibration: instrument default
+Extracting...
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk001.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk001.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk002.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk003.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk004.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk005.txt
+  3% (2000/66477)  written: 37993500 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk006.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk007.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk008.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk009.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk010.txt
+  6% (4000/66477)  written: 87909012 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk011.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk012.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk013.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk014.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk015.txt
+  9% (6000/66477)  written: 137840553 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk002.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk016.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk017.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk018.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk019.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk020.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk021.txt
+  12% (8000/66477)  written: 195101362 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk003.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk022.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk023.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk024.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk025.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk026.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk027.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk004.txt
+  15% (10000/66477)  written: 260785761 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk028.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk029.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk030.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk031.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk032.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk005.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk033.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk034.txt
+  18% (12000/66477)  written: 334044735 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk035.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk036.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk037.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk006.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk038.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk039.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk040.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk041.txt
+  21% (14000/66477)  written: 413693242 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk042.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk043.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk007.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk044.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk045.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk046.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk047.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk048.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk008.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk049.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk050.txt
+  24% (16000/66477)  written: 500062311 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk051.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk052.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk053.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk009.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk054.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk055.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk056.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk057.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk058.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk059.txt
+  27% (18000/66477)  written: 595191853 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk010.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk060.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk061.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk062.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk063.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk064.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk011.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk065.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk066.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk067.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk068.txt
+  30% (20000/66477)  written: 693250874 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk069.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk012.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk070.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk071.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk072.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk073.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk074.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk075.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk013.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk076.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk077.txt
+  33% (22000/66477)  written: 790609480 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk078.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk079.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk080.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk014.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk081.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk082.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk083.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk084.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk085.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk086.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk015.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk087.txt
+  36% (24000/66477)  written: 893505174 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk088.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk089.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk090.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk091.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk016.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk092.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk093.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk094.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk095.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk096.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk017.txt
+  39% (26000/66477)  written: 996375270 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk097.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk098.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk099.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk100.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk101.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk018.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk102.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk103.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk104.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk105.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk106.txt
+  42% (28000/66477)  written: 1102324455 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk107.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk019.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk108.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk109.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk110.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk111.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk112.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk020.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk113.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk114.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk115.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk116.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk117.txt
+  45% (30000/66477)  written: 1212696272 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk021.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk118.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk119.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk120.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk121.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk122.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk123.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk022.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk124.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk125.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk126.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk127.txt
+  48% (32000/66477)  written: 1322887796 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk128.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk023.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk129.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk130.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk131.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk132.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk133.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk134.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk024.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk135.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk136.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk137.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk138.txt
+  51% (34000/66477)  written: 1435017981 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk139.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk140.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk025.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk141.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk142.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk143.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk144.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk145.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk026.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk146.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk147.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk148.txt
+  54% (36000/66477)  written: 1540412319 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk149.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk150.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk151.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk027.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk152.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk153.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk154.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk155.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk156.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk157.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk028.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk158.txt
+  57% (38000/66477)  written: 1644256584 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk159.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk160.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk161.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk162.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk163.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk029.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk164.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk165.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk166.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk167.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk168.txt
+  60% (40000/66477)  written: 1754867096 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk169.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk030.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk170.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk171.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk172.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk173.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk174.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk175.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk176.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk031.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk177.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk178.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk179.txt
+  63% (42000/66477)  written: 1863583404 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk180.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk181.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk182.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk183.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk032.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk184.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk185.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk186.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk187.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk188.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk189.txt
+  66% (44000/66477)  written: 1966560084 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk190.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk191.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk192.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk193.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk194.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk033.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk195.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk196.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk197.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk198.txt
+  69% (46000/66477)  written: 2056741779 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk199.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk200.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk201.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk202.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk203.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk204.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk205.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk206.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk034.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk207.txt
+  72% (48000/66477)  written: 2137333048 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk208.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk209.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk210.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk211.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk212.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk213.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk214.txt
+  75% (50000/66477)  written: 2205757158 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk215.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk216.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk217.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk218.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk219.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk220.txt
+  78% (52000/66477)  written: 2262182638 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk221.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk222.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk223.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk224.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk225.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms2_chunk035.txt
+  81% (54000/66477)  written: 2308207166 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk226.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk227.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk228.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk229.txt
+  84% (56000/66477)  written: 2345439571 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk230.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk231.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk232.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk233.txt
+  87% (58000/66477)  written: 2380134380 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk234.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk235.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk236.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk237.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk238.txt
+  90% (60000/66477)  written: 2423251002 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk239.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk240.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk241.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk242.txt
+  93% (62000/66477)  written: 2463280687 peaks     -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk243.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk244.txt
+  -> 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/230317_SIGRID_10_Slot1-41_1_4086.d_ms1_chunk245.txt
+  100% (66477/66477)  written: 2486195849 peaks   
+
+Done.
+  Total peaks written : 2486195919
+  MS1 chunks          : 245
+  MS2 chunks          : 35
+  Output              : 230317_SIGRID_10_Slot1-41_1_4086.d_tdfbin/
+
+real    90m7.122s
+user    69m55.285s
+sys     1m3.252s
+```
 
 # TBD
 
