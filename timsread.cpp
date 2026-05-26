@@ -846,9 +846,35 @@ static void writeTdfBin(const std::string& tdfDirectory)
 
         // Read all scans in this frame
         auto scans = data.readScans(fr.id, 0, fr.numScans);
-
-        // Batch-convert ALL scan numbers to 1/K0 for this frame at once
         int ns = static_cast<int>(scans.getNbrScans());
+
+        // Batch 1: collect ALL TOF indices across ALL scans in this frame
+        // then call indexToMz ONCE per frame instead of once per scan.
+        // This reduces SDK calls from ~900/frame to 1/frame (~900x fewer calls).
+        size_t totalPeaksInFrame = scans.getTotalNbrPeaks();
+
+        // Build flat index array and a scan-offset map in one pass
+        std::vector<double> allIndices;
+        allIndices.reserve(totalPeaksInFrame);
+        // scan_peak_start[s] = offset into allIndices where scan s begins
+        std::vector<size_t> scanPeakStart(ns + 1, 0);
+        for (int scan = 0; scan < ns; ++scan) {
+            auto nPeaks = scans.getNbrPeaks(scan);
+            scanPeakStart[scan] = allIndices.size();
+            if (nPeaks > 0) {
+                auto xAxis = scans.getScanX(scan);
+                allIndices.insert(allIndices.end(),
+                                  xAxis.first, xAxis.first + nPeaks);
+            }
+        }
+        scanPeakStart[ns] = allIndices.size();
+
+        // Single indexToMz call for the whole frame
+        std::vector<double> allMz;
+        if (!allIndices.empty())
+            data.indexToMz(fr.id, allIndices, allMz);
+
+        // Batch 2: scanNumToOneOverK0 (already one call per frame)
         std::vector<double> allScans(ns);
         for (int s = 0; s < ns; ++s) allScans[s] = static_cast<double>(s);
         std::vector<double> allK0(ns);
@@ -862,14 +888,9 @@ static void writeTdfBin(const std::string& tdfDirectory)
             auto nPeaks = scans.getNbrPeaks(scan);
             if (nPeaks == 0) continue;
 
-            auto xAxis = scans.getScanX(scan);
-            auto yAxis = scans.getScanY(scan);
-
-            indices.assign(xAxis.first, xAxis.second);
-            mzVec.resize(indices.size());
-            data.indexToMz(fr.id, indices, mzVec);
-
-            double k0 = allK0[scan];
+            auto yAxis  = scans.getScanY(scan);
+            double k0   = allK0[scan];
+            size_t base = scanPeakStart[scan];  // offset into allMz
 
             for (size_t k = 0; k < nPeaks; ++k) {
                 uint32_t rawInt = yAxis.first[k];
@@ -878,7 +899,7 @@ static void writeTdfBin(const std::string& tdfDirectory)
                     << fr.time     << "\t"
                     << fr.msMsType << "\t"
                     << scan        << "\t"
-                    << mzVec[k]    << "\t"
+                    << allMz[base + k] << "\t"
                     << rawInt      << "\t"
                     << k0          << "\n";
                 ++framePeaks;
@@ -990,8 +1011,8 @@ static void processAllFrames(
         ms1File->rdbuf()->pubsetbuf(ms1Buf, sizeof(ms1Buf));
 
     // Pre-allocated reusable containers
-    std::vector<double> mobilityVec(1), scanVec(1);
-    std::vector<double> xAxisMasses, indices;
+    std::vector<double> mobilityVec(1), scanVec(1);  // still used by MGF path
+    std::vector<double> xAxisMasses, indices;          // still used by MGF path
     std::vector<std::pair<double, double>> peaks;
     xAxisMasses.reserve(2000);
     indices.reserve(2000);
@@ -1089,33 +1110,60 @@ static void processAllFrames(
 
         } else if (ms1File) {
             // --- MS1 frame (binary, only with -ms1) ---
+            // Sample every 10th IMS scan. Batch indexToMz + 1/K0 per frame.
             auto scans = data.readScans(frame.id, 0, frame.numScans);
+            int ns = static_cast<int>(scans.getNbrScans());
 
-            for (unsigned scan = 0; scan < scans.getNbrScans(); scan += 10) {
-                auto nPeaks = scans.getNbrPeaks(scan);
-                if (nPeaks == 0) continue;
+            // Collect sampled scan numbers first
+            std::vector<int> sampledScans;
+            for (int scan = 0; scan < ns; scan += 10)
+                if (scans.getNbrPeaks(scan) > 0)
+                    sampledScans.push_back(scan);
 
-                auto xAxis = scans.getScanX(scan);
-                auto yAxis = scans.getScanY(scan);
+            if (sampledScans.empty()) { ++ms1Count; goto flush; }
 
-                indices.assign(xAxis.first, xAxis.second);
-                xAxisMasses.resize(indices.size());
-                data.indexToMz(frame.id, indices, xAxisMasses);
+            // Flat index array across all sampled scans - one indexToMz call
+            std::vector<double> ms1Indices;
+            std::vector<size_t> ms1ScanOffset(sampledScans.size() + 1, 0);
+            for (size_t si = 0; si < sampledScans.size(); ++si) {
+                ms1ScanOffset[si] = ms1Indices.size();
+                auto xAxis = scans.getScanX(sampledScans[si]);
+                auto nPk   = scans.getNbrPeaks(sampledScans[si]);
+                ms1Indices.insert(ms1Indices.end(), xAxis.first, xAxis.first + nPk);
+            }
+            ms1ScanOffset[sampledScans.size()] = ms1Indices.size();
 
-                scanVec[0] = static_cast<double>(scan);
-                data.scanNumToOneOverK0(frame.id, scanVec, mobilityVec);
+            {
+                std::vector<double> ms1Mz;
+                data.indexToMz(frame.id, ms1Indices, ms1Mz);
 
-                for (size_t k = 0; k < nPeaks; ++k) {
-                    if (yAxis.first[k] <= 0.0) continue;
-                    ms1BufStr << frame.id << "\t"
-                              << std::fixed << std::setprecision(6) << frame.time << "\t"
-                              << scan << "\t"
-                              << xAxisMasses[k] << "\t";
-                    if (yAxis.first[k] == static_cast<int64_t>(yAxis.first[k]))
-                        ms1BufStr << static_cast<int64_t>(yAxis.first[k]) << "\t";
-                    else
-                        ms1BufStr << std::setprecision(1) << yAxis.first[k] << "\t";
-                    ms1BufStr << std::setprecision(6) << mobilityVec[0] << "\n";
+                // 1/K0 for sampled scans - one call
+                std::vector<double> ms1ScanD(sampledScans.size());
+                for (size_t si = 0; si < sampledScans.size(); ++si)
+                    ms1ScanD[si] = static_cast<double>(sampledScans[si]);
+                std::vector<double> ms1K0;
+                data.scanNumToOneOverK0(frame.id, ms1ScanD, ms1K0);
+
+                for (size_t si = 0; si < sampledScans.size(); ++si) {
+                    int scan    = sampledScans[si];
+                    auto nPeaks = scans.getNbrPeaks(scan);
+                    auto yAxis  = scans.getScanY(scan);
+                    size_t base = ms1ScanOffset[si];
+                    double k0   = ms1K0[si];
+
+                    for (size_t k = 0; k < nPeaks; ++k) {
+                        if (yAxis.first[k] <= 0.0) continue;
+                        ms1BufStr << frame.id << "\t"
+                                  << std::fixed << std::setprecision(6)
+                                  << frame.time << "\t"
+                                  << scan << "\t"
+                                  << ms1Mz[base + k] << "\t";
+                        if (yAxis.first[k] == static_cast<int64_t>(yAxis.first[k]))
+                            ms1BufStr << static_cast<int64_t>(yAxis.first[k]) << "\t";
+                        else
+                            ms1BufStr << std::setprecision(1) << yAxis.first[k] << "\t";
+                        ms1BufStr << std::setprecision(6) << k0 << "\n";
+                    }
                 }
             }
             ++ms1Count;
